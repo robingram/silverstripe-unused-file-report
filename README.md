@@ -31,3 +31,8 @@ builder task has not been run the report will contain no data.
 
 If the Queued Jobs module is installed then the report builder job will appear
 in the "Create job of type" drop-down list in the Jobs tab as `UnusedFileReportJob`.
+
+## Credits
+
+Thanks to Christchurch City Council, New Zealand, for enabling the development
+of this module.
