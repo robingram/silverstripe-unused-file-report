@@ -1,0 +1,23 @@
+{
+    "name": "silverstripe/unused-file-report",
+    "description": "Generates a report on potentially unused files for CMS users",
+    "keywords": [
+        "silverstripe",
+        "unused",
+        "file",
+        "report"
+    ],
+    "type": "silverstripe-module",
+    "license": "BSD-3-Clause",
+    "authors": [
+        {
+            "name": "Rob Ingram",
+            "email": "robert.ingram@ccc.govt.nz"
+        }
+    ],
+    "require": {
+        "silverstripe/framework": "~3.1",
+        "silverstripe/cms": "~3.1"
+    },
+    "extra": []
+}
