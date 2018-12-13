@@ -1,11 +1,28 @@
 <?php
+
+namespace RobIngram\SilverStripe\UnusedFileReport\Reports;
+
+use SilverStripe\Reports\Report;
+use SilverStripe\Security\Member;
+use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\TextField;
+use SilverStripe\Forms\DropdownField;
+use SilverStripe\Forms\GridField\GridFieldPrintButton;
+use SilverStripe\Forms\GridField\GridFieldExportButton;
+use SilverStripe\Forms\GridField\GridFieldDeleteAction;
+use SilverStripe\Assets\File;
+use SilverStripe\Control\Controller;
+use SilverStripe\AssetAdmin\Controller\AssetAdmin;
+use SilverStripe\ORM\FieldType\DBField;
+use SilverStripe\Versioned\VersionedGridFieldState\VersionedGridFieldState;
+
 /**
  * Create a report on the files that have been flagged as potentially unused
  *
  * @author Rob Ingram <robert.ingram@ccc.govt.nz>
  * @package Reports
  */
-class UnusedFilesReport extends SS_Report
+class UnusedFilesReport extends Report
 {
     public function title()
     {
@@ -14,7 +31,9 @@ class UnusedFilesReport extends SS_Report
 
     public function description()
     {
-        return 'This report contains <strong>potentially</strong> unused files. Please check with the owner before deleting any of these files.';
+        return DBField::create_field('HTMLText',
+            'This report contains <strong>potentially</strong> unused files. Please check with the owner before deleting any of these files.'
+        );
     }
 
     public function columns()
@@ -34,7 +53,7 @@ class UnusedFilesReport extends SS_Report
                 'formatting' => function ($value, $item) {
                     return sprintf(
                         "<a href='%s'>%s</a>",
-                        Controller::join_links(singleton('AssetAdmin')->Link('EditForm'), 'field/File/item', $item->ID, 'edit'),
+                        Controller::join_links(singleton(AssetAdmin::class)->Link('EditForm'), 'field/File/item', $item->ID, 'edit'),
                         $value
                     );
                 },
@@ -79,19 +98,29 @@ class UnusedFilesReport extends SS_Report
         return array_keys($this->columns());
     }
 
-    public function sourceRecords($params, $sort, $limit)
+    public function sourceRecords($params = [], $sort = null, $limit = null)
     {
+        $where = false;
+
         if (isset($params['FileType']) && $params['FileType'] == 'File') {
-            $where = "File.ClassName = 'File'";
+            $where = "File.ClassName = 'SilverStripe\\\\Assets\\\\File'";
         } elseif (isset($params['FileType']) && $params['FileType'] == 'Image') {
-            $where = "File.ClassName = 'Image'";
-        } else {
-            $where = "File.ClassName = 'File' OR File.ClassName = 'Image'";
+            $where = "File.ClassName = 'SilverStripe\\\\Assets\\\\Image'";
         }
 
+
         $files = File::get()
-            ->innerJoin('UnusedFileReportDB', '"File"."ID" = "UnusedFileReportDB"."FileID"')
-            ->where($where);
+            ->innerJoin('UnusedFileReportDB', '"File"."ID" = "UnusedFileReportDB"."FileID"');
+
+        if (isset($params['Title'])) {
+            $files = $files->filter('Title:PartialMatch:nocase', $params['Title']);
+        }
+
+        if ($where) {
+            $files = $files->where($where);
+        }
+
+        $this->extend('updateSourceRecords', $files, $params);
 
         return $files;
     }
@@ -99,28 +128,25 @@ class UnusedFilesReport extends SS_Report
     public function parameterFields()
     {
         return new FieldList(
-            new DropdownField('FileType', 'File type', array(
-                    'All' => 'All',
-                    'File' => 'Files Only',
-                    'Image' => 'Images Only'
-                )
-            )
+            TextField::create('Title', 'File name'),
+            new DropdownField('FileType', 'File type', [
+                'All' => 'All',
+                'File' => 'Files Only',
+                'Image' => 'Images Only'
+            ])
         );
     }
 
     public function getReportField()
     {
-        $gridField = parent::getReportField();
-        $gridField->setModelClass('FilesReport');
-        $gridConfig = $gridField->getConfig();
-        $gridConfig->removeComponentsByType('GridFieldPrintButton');
-        $gridConfig->removeComponentsByType('GridFieldExportButton');
-        $gridConfig->addComponents(
-            new GridFieldPrintReportButton('buttons-after-left'),
-            new GridFieldExportReportButton('buttons-after-left')
-        );
+        $field = parent::getReportField();
 
-        return $gridField;
+        if ($config = $field->getConfig()) {
+            $config->addComponent(new GridFieldDeleteAction());
+            $config->addComponent(new VersionedGridFieldState());
+        }
+
+        return $field;
     }
 
     /**

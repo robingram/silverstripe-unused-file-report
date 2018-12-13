@@ -1,9 +1,31 @@
 <?php
+
+namespace RobIngram\SilverStripe\UnusedFileReport\Tasks;
+
+use SilverStripe\Dev\BuildTask;
+use SilverStripe\ORM\DB;
+use SilverStripe\ORM\Queries\SQLInsert;
+use SilverStripe\ORM\FieldType\DBDatetime;
+use SilverStripe\Core\Config\Config;
+use SilverStripe\Assets\File;
+use SilverStripe\CMS\Model\SiteTree;
+use SilverStripe\ORM\DataObject;
+use SilverStripe\Core\Environment;
+use SilverStripe\Core\Manifest\ClassLoader;
+use SilverStripe\Control\Director;
+use RobIngram\SilverStripe\UnusedFileReport\Model\UnusedFileReportDB;
+
 /**
  * A task that collects data on unused files
  */
 class UnusedFileReportBuildTask extends BuildTask
 {
+    /**
+     * {@inheritDoc}
+     * @var string
+     */
+    private static $segment = 'UnusedFileReportBuildTask';
+
     /**
      * {@inheritDoc}
      * @var string
@@ -66,77 +88,144 @@ class UnusedFileReportBuildTask extends BuildTask
      */
     public function run($request)
     {
-        echo '<p>Start: ' . date('Y-m-d H:i:s') . '</p>';
-        ini_set('max_execution_time', 1200);
-        $this->buildReportTable();
-        echo '<p>Memory: ' . memory_get_peak_usage() . '</p>';
-        echo '<p>End: ' . date('Y-m-d H:i:s') . '</p>';
-    }
+        Environment::increaseMemoryLimitTo(-1);
+        Environment::increaseTimeLimitTo(-1);
 
-    /**
-     * Get the IDs of all files that are in use and populate the table with
-     * files that atent
-     */
-    public function buildReportTable()
-    {
-        $used = $this->getUsedFiles();
-        $query =  sprintf(
-            "SELECT ID FROM File WHERE ID NOT IN (%s) AND ClassName != 'Folder'",
-            implode(',', $used)
-        );
+        if ($id = $request->getVar('check')) {
+            $used = $this->getUsedFiles();
 
-        $files = DB::query($query);
-
-        if(isset($files)) {
-            DB::query('TRUNCATE "UnusedFileReportDB"');
-            $insert = SQLInsert::create('"UnusedFileReportDB"');
-
-            $count = 0;
-            foreach ($files as $file) {
-                $insert->addRow(
-                    [
-                        'FileID' => $file['ID']
-                    ]
-                );
-                $count++;
+            if (in_array($id, $used)) {
+                $this->outputMessage('File#'. $id .' is used on the site. Checked ' . date('Y-m-d H:i:s'));
+            } else {
+                $this->outputMessage('File#'. $id .' is unused. Checked ' . date('Y-m-d H:i:s'));
             }
+        } else {
+            $this->outputMessage('Start building index: ' . date('Y-m-d H:i:s'));
+            $this->buildReportTable();
 
-            $insert->execute();
-
-            echo "<h3>Report table generation completed. Added {$count} files.</h3>";
+            $this->outputMessage('Memory: ' . $this->getNiceSize(memory_get_peak_usage()));
+            $this->outputMessage('End: ' . date('Y-m-d H:i:s'));
         }
     }
 
     /**
-    * Get the IDs of all files that are in use on the site
-    * @return array
-    */
+     * Get the IDs of all files that are in use and populate the table with
+     * files that aren't used from the File and File_Live tables.
+     *
+     */
+    public function buildReportTable()
+    {
+        $used = $this->getUsedFiles();
+        $unusedPreviously = UnusedFileReportDB::get()->count();
+
+        if ($used) {
+            $query =  sprintf(
+                "SELECT ID FROM File WHERE ID NOT IN (%s) AND ClassName != 'SilverStripe\\Assets\\Folder'",
+                implode(',', $used)
+            );
+
+            $files = DB::query($query)->column();
+            $count = 0;
+            $done = [];
+
+            $now = DBDatetime::now()->Rfc2822();
+
+            if ($files) {
+                DB::query('TRUNCATE "UnusedFileReportDB"');
+
+                $insert = SQLInsert::create('"UnusedFileReportDB"');
+
+                foreach ($files as $file) {
+                    $insert->addRow([
+                        'FileID' => $file,
+                        'LastEdited' => $now,
+                        'Created' => $now
+                    ]);
+
+                    $done[$file] = true;
+                    $count++;
+                }
+
+                if (!$insert->isEmpty()) {
+                    $insert->execute();
+                }
+            }
+
+            // remove any which aren't used in live.
+            $query =  sprintf(
+                "SELECT ID FROM File_Live WHERE ID NOT IN (%s) AND ClassName != 'SilverStripe\\Assets\\Folder'",
+                implode(',', $used)
+            );
+
+            $files = DB::query($query)->column();
+
+            if ($files) {
+                $insert = SQLInsert::create('"UnusedFileReportDB"');
+
+                foreach ($files as $file) {
+                    if (isset($done[$file])) {
+                        continue;
+                    }
+
+                    $insert->addRow([
+                        'FileID' => $file,
+                        'LastEdited' => $now,
+                        'Created' => $now
+                    ]);
+
+                    $count++;
+                }
+
+                if (!$insert->isEmpty()) {
+                    $insert->execute();
+                }
+            }
+
+            $this->outputMessage(sprintf("%sReport table generation completed. %s %s files to Unused File DB.",
+                PHP_EOL,
+                ($count > $unusedPreviously) ? 'Added' : 'Removed',
+                abs($count - $unusedPreviously)
+            ));
+        }
+    }
+
+    /**
+     * Get the IDs of all files that are in use on the site.
+     *
+     * @return array
+     */
     protected function getUsedFiles()
     {
         $classesToCheck = $this->getClassesToCheck();
+
         $classesWithFiles = $this->getFileClasses($classesToCheck);
         $relationshipQuery = $this->getRelationshipFileQuery($classesWithFiles);
         unset($classesWithFiles);
+
         $relatedIds = $this->getRelatedFileIDs($relationshipQuery);
         unset($relationshipQuery);
 
         $classesWithContent = $this->getContentClasses($classesToCheck);
         unset($classesToCheck);
+
         $contentQuery = $this->getContentQuery($classesWithContent);
         unset($classesWithContent);
+
         $contentIds = $this->getContentIds($contentQuery);
         unset($contentQuery);
 
         $usedIds = array_unique(array_merge($relatedIds, $contentIds));
         unset($relatedIds);
         unset($contentIds);
+
         return $usedIds;
     }
 
     /**
-    * Get all the candidate classes to check for File or Image references
-    * @return array
-    */
+     * Get all the candidate classes to check for File or Image references.
+     *
+     * @return array
+     */
     protected function getClassesToCheck()
     {
         $classes = array_diff(
@@ -148,17 +237,19 @@ class UnusedFileReportBuildTask extends BuildTask
             ),
             $this->excludeClasses
         );
+
         sort($classes);
 
         return $classes;
     }
 
     /**
-    * Get all the classes that have references to images or files
-    *
-    * @param array $candidates Candidate class names
-    * @return array
-    */
+     * Get all the classes that have references to images or files
+     *
+     * @param array $candidates Candidate class names
+     *
+     * @return array
+     */
     protected function getFileClasses($candidates)
     {
         $hasOneRels   = [];
@@ -311,11 +402,16 @@ class UnusedFileReportBuildTask extends BuildTask
     */
     protected function getRelatedFileIDs($query)
     {
-        DB::query(self::ISOLATION_ON);
-        $result = DB::query($query)->column();
-        DB::query(self::ISOLATION_OFF);
+        if ($query) {
+            DB::query(self::ISOLATION_ON);
 
-        return $result;
+            $result = DB::query($query)->column();
+            DB::query(self::ISOLATION_OFF);
+
+            return $result;
+        } else {
+            return [];
+        }
     }
 
     /**
@@ -330,10 +426,11 @@ class UnusedFileReportBuildTask extends BuildTask
 
         foreach ($candidates as $className) {
             $contentClasses[$className] = array_intersect(
-                DataObject::custom_database_fields($className),
+                DataObject::getSchema()->databaseFields($className, false),
                 ['HTMLText']
             );
         }
+
         $contentClasses = array_filter($contentClasses);
 
         return $contentClasses;
@@ -472,15 +569,14 @@ class UnusedFileReportBuildTask extends BuildTask
     }
 
     /**
-    * Get the SS manifest
-    * @return SS_ClassManifest
-    */
+     * @return ClassManifest
+     */
     protected function getManifest()
     {
         if (is_null($this->manifest)) {
-            $classLoader = SS_ClassLoader::instance();
-            $this->manifest = $classLoader->getManifest();
+            $this->manifest = ClassLoader::inst()->getManifest();
         }
+
         return $this->manifest;
     }
 
@@ -491,8 +587,9 @@ class UnusedFileReportBuildTask extends BuildTask
     protected function getSiteTreeClasses()
     {
         if (is_null($this->siteTreeClasses)) {
-            $this->siteTreeClasses = $this->getManifest()->getDescendantsOf('SiteTree');
+            $this->siteTreeClasses = $this->getManifest()->getDescendantsOf(SiteTree::class);
         }
+
         return $this->siteTreeClasses;
     }
 
@@ -503,20 +600,53 @@ class UnusedFileReportBuildTask extends BuildTask
     protected function getDataClasses()
     {
         if (is_null($this->dataClasses)) {
-            $this->dataClasses = $this->getManifest()->getDescendantsOf('DataObject');
+            $this->dataClasses = $this->getManifest()->getDescendantsOf(DataObject::class);
         }
+
         return $this->dataClasses;
     }
 
     /**
-    * Transform a table name to it's versioned equivalent if necessary
-    * @param  string $className Name of class (corresponds to table name)
-    * @return string            Class name with versioned extension if applicable
-    */
+     * Transform a table name to it's versioned equivalent if necessary.
+     *
+     * @param  string $className Name of class (corresponds to table name)
+     *
+     * @return string            Class name with versioned extension if applicable
+     */
     protected function getVersionedtableName($className)
     {
-        return ($className::has_extension('Versioned'))
-            ? "{$className}_versions"
-            :$className;
+        $table = DataObject::getSchema()->tableName($className);
+
+        if ($className::has_extension('Versioned')) {
+            return "{$table}_Versions";
+        } else {
+            return $table;
+        }
     }
+
+    /**
+     *
+     */
+    protected function outputMessage($message)
+    {
+        if (Director::is_cli()) {
+            echo $message . PHP_EOL;
+        } else {
+            echo sprintf('<p>%s</p>'. PHP_EOL, $message);
+        }
+    }
+
+    /**
+     * @return string
+     */
+    protected function getNiceSize($bytes) {
+        $unit = ['B','KiB','MiB','GiB','TiB','PiB'];
+
+        if ($bytes == 0) {
+            return '0 ' . $unit[0];
+        }
+
+        return @round($bytes / pow(1024,($i=  floor(log($bytes,1024)))),2) .' '. (isset($unit[$i]) ? $unit[$i] : 'B');
+    }
+
 }

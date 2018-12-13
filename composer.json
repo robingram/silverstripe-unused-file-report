@@ -7,7 +7,7 @@
         "file",
         "report"
     ],
-    "type": "silverstripe-module",
+    "type": "silverstripe-vendormodule",
     "license": "BSD-3-Clause",
     "authors": [
         {
@@ -16,13 +16,19 @@
         }
     ],
     "require": {
-        "silverstripe/framework": "~3.1",
-        "silverstripe/cms": "~3.1"
+        "silverstripe/framework": "^4",
+        "silverstripe/cms": "^4"
+    },
+    "autoload": {
+        "psr-4": {
+            "RobIngram\\SilverStripe\\UnusedFileReport\\": "src/"
+        }
     },
     "extra": {
-        "installer-name": "unused-file-report",
         "branch-alias": {
-            "dev-master": "1.0.x-dev"
+            "dev-master": "2.0.x-dev"
         }
-    }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
