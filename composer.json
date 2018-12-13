@@ -1,5 +1,5 @@
 {
-    "name": "silverstripe/unused-file-report",
+    "name": "robingram/silverstripe-unused-file-report",
     "description": "Generates a report on potentially unused files for CMS users",
     "keywords": [
         "silverstripe",
@@ -19,5 +19,10 @@
         "silverstripe/framework": "~3.1",
         "silverstripe/cms": "~3.1"
     },
-    "extra": []
+    "extra": {
+        "installer-name": "unused-file-report",
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        }
+    }
 }
