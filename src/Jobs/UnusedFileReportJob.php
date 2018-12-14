@@ -1,7 +1,11 @@
 <?php
-if (!class_exists("AbstractQueuedJob")) {
-    return;
-}
+
+namespace RobIngram\SilverStripe\UnusedFileReport\Jobs;
+
+use Symbiote\QueuedJobs\Services\AbstractQueuedJob;
+use Symbiote\QueuedJobs\Services\QueuedJob;
+use RobIngram\SilverStripe\UnusedFileReport\UnusedFileReportBuildTask;
+use SilverStripe\Control\HTTPRequest;
 
 /**
  * Allows the optional use of queued jobs module to to run the unused file
@@ -39,10 +43,11 @@ class UnusedFileReportJob extends AbstractQueuedJob implements QueuedJob
     public function process()
     {
         $task = new UnusedFileReportBuildTask();
-        $task->run(new SS_HTTPRequest('GET', "/dev/tasks/UnusedFileReportBuildTask"));
+        $task->run(new HTTPRequest('GET', "/dev/tasks/UnusedFileReportBuildTask"));
 
         $this->currentStep = 1;
         $this->isComplete = true;
+
         echo $this->isComplete;
     }
 }

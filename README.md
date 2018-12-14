@@ -9,6 +9,12 @@ In addition, if the [Queued Jobs](https://github.com/symbiote/silverstripe-queue
 module is installed a job will be created that will allow the task to be scheduled
 at a convenient time.
 
+## Installation
+
+```
+composer require robingram/silverstripe-unused-file-report
+```
+
 ## Running the task
 
 ### Through a browser
