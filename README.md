@@ -11,9 +11,10 @@ at a convenient time.
 
 ## Versions
 
-This version requires Silverstripe 4+.
+This version requires Silverstripe 5.
 
 For Silverstripe 3 use the 1.x releases.
+For Silverstripe 4 use the 2.x releases.
 
 ## Installation
 
