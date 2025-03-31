@@ -63,15 +63,15 @@ class UnusedFileReportBuildTask extends BuildTask
     protected $siteTreeClasses;
 
     // Isolation levels so that we can run large queries without locking the DB
-    const ISOLATION_ON = 'SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;';
-    const ISOLATION_OFF = 'SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;';
+    public const ISOLATION_ON = 'SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;';
+    public const ISOLATION_OFF = 'SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;';
 
-    const HAS_ONE_QUERY_TEMPLATE = 'SELECT %sID AS file_id FROM %s WHERE %sID > 0';
-    const HAS_MANY_QUERY_TEMPLATE = 'SELECT %sID AS file_id FROM %s WHERE %sID > 0';
-    const MANY_MANY_QUERY_TEMPLATE = 'SELECT %sID AS file_id FROM %s_%s WHERE %sID > 0';
-    const CONTENT_QUERY_TEMPLATE = "SELECT %s AS content FROM %s WHERE %s IS NOT NULL AND %s != '' AND (%s LIKE '%%img%%' OR %s LIKE '%%file_link%%')";
+    public const HAS_ONE_QUERY_TEMPLATE = 'SELECT %sID AS file_id FROM %s WHERE %sID > 0';
+    public const HAS_MANY_QUERY_TEMPLATE = 'SELECT %sID AS file_id FROM %s WHERE %sID > 0';
+    public const MANY_MANY_QUERY_TEMPLATE = 'SELECT %sID AS file_id FROM %s_%s WHERE %sID > 0';
+    public const CONTENT_QUERY_TEMPLATE = "SELECT %s AS content FROM %s WHERE %s IS NOT NULL AND %s != '' AND (%s LIKE '%%img%%' OR %s LIKE '%%file_link%%')";
 
-    const LARGE_QUERY_BATCH_SIZE = 500;
+    public const LARGE_QUERY_BATCH_SIZE = 500;
 
     /**
     * Classes that we should NOT be checking for unused file references
@@ -79,7 +79,7 @@ class UnusedFileReportBuildTask extends BuildTask
     */
     protected $excludeClasses = [
         'File',
-        'FileVersion'
+        'FileVersion',
     ];
 
     /**
@@ -95,9 +95,9 @@ class UnusedFileReportBuildTask extends BuildTask
             $used = $this->getUsedFiles();
 
             if (in_array($id, $used)) {
-                $this->outputMessage('File#'. $id .' is used on the site. Checked ' . date('Y-m-d H:i:s'));
+                $this->outputMessage('File#' . $id . ' is used on the site. Checked ' . date('Y-m-d H:i:s'));
             } else {
-                $this->outputMessage('File#'. $id .' is unused. Checked ' . date('Y-m-d H:i:s'));
+                $this->outputMessage('File#' . $id . ' is unused. Checked ' . date('Y-m-d H:i:s'));
             }
         } else {
             $this->outputMessage('Start building index: ' . date('Y-m-d H:i:s'));
@@ -121,7 +121,7 @@ class UnusedFileReportBuildTask extends BuildTask
         if ($used) {
             $query =  sprintf(
                 "SELECT ID FROM File WHERE ID NOT IN (%s) AND ClassName != 'SilverStripe\\Assets\\Folder'",
-                implode(',', $used)
+                implode(',', $used),
             );
 
             $files = DB::query($query)->column();
@@ -139,7 +139,7 @@ class UnusedFileReportBuildTask extends BuildTask
                     $insert->addRow([
                         'FileID' => $file,
                         'LastEdited' => $now,
-                        'Created' => $now
+                        'Created' => $now,
                     ]);
 
                     $done[$file] = true;
@@ -154,7 +154,7 @@ class UnusedFileReportBuildTask extends BuildTask
             // remove any which aren't used in live.
             $query =  sprintf(
                 "SELECT ID FROM File_Live WHERE ID NOT IN (%s) AND ClassName != 'SilverStripe\\Assets\\Folder'",
-                implode(',', $used)
+                implode(',', $used),
             );
 
             $files = DB::query($query)->column();
@@ -170,7 +170,7 @@ class UnusedFileReportBuildTask extends BuildTask
                     $insert->addRow([
                         'FileID' => $file,
                         'LastEdited' => $now,
-                        'Created' => $now
+                        'Created' => $now,
                     ]);
 
                     $count++;
@@ -181,10 +181,11 @@ class UnusedFileReportBuildTask extends BuildTask
                 }
             }
 
-            $this->outputMessage(sprintf("%sReport table generation completed. %s %s files to Unused File DB.",
+            $this->outputMessage(sprintf(
+                "%sReport table generation completed. %s %s files to Unused File DB.",
                 PHP_EOL,
                 ($count > $unusedPreviously) ? 'Added' : 'Removed',
-                abs($count - $unusedPreviously)
+                abs($count - $unusedPreviously),
             ));
         }
     }
@@ -232,10 +233,10 @@ class UnusedFileReportBuildTask extends BuildTask
             array_unique(
                 array_merge(
                     $this->getSiteTreeClasses(),
-                    $this->getDataClasses()
-                )
+                    $this->getDataClasses(),
+                ),
             ),
-            $this->excludeClasses
+            $this->excludeClasses,
         );
 
         sort($classes);
@@ -265,7 +266,7 @@ class UnusedFileReportBuildTask extends BuildTask
         return [
             'has_one'   => array_filter($hasOneRels),
             'has_many'  => array_filter($hasManyRels),
-            'many_many' => array_filter($manyManyRels)
+            'many_many' => array_filter($manyManyRels),
         ];
     }
 
@@ -278,8 +279,36 @@ class UnusedFileReportBuildTask extends BuildTask
     */
     protected function getRelationshipFields($class, $relationship)
     {
-        $relationships = @(array)Config::inst()->get($class, $relationship, Config::UNINHERITED);
-        return array_intersect($relationships, ['File', 'Image']);
+        $relationships = @(array) Config::inst()->get($class, $relationship, Config::UNINHERITED);
+        $relationships = $this->flatten($relationships);
+
+        return array_intersect($relationships, ['SilverStripe\Assets\File', 'SilverStripe\Assets\Image']);
+    }
+
+    /**
+     * Flatten any multi dimensional arrays.
+     *
+     * @param [type] $array
+     *
+     * @return array
+     */
+    public function flatten($array)
+    {
+        $results = [];
+        foreach ($array as $key => $value) {
+            // if many_many_through relationships
+            if (is_array($value) && !empty($value)) {
+                if (isset($value['through'])) {
+                    $results[$key] = $value['through'];
+                }
+            } else {
+                if ($key && $value) {
+                    $results[$key] = $value;
+                }
+            }
+        }
+
+        return $results;
     }
 
     /**
@@ -308,25 +337,25 @@ class UnusedFileReportBuildTask extends BuildTask
         return implode(
             "\nUNION\n",
             array_map(
-                function($k, $v) {
+                function ($k, $v) {
                     return implode(
                         "\nUNION\n",
                         array_map(
-                            function($field) use ($k) {
+                            function ($field) use ($k) {
                                 return sprintf(
                                     self::HAS_ONE_QUERY_TEMPLATE,
                                     $field,
                                     $this->getVersionedTableName($k),
-                                    $field
+                                    $field,
                                 );
                             },
-                            array_keys($v)
-                        )
+                            array_keys($v),
+                        ),
                     );
                 },
                 array_keys($hasOneClasses),
-                $hasOneClasses
-            )
+                $hasOneClasses,
+            ),
         );
     }
 
@@ -346,16 +375,16 @@ class UnusedFileReportBuildTask extends BuildTask
         return implode(
             "\nUNION\n",
             array_map(
-                function($field) {
+                function ($field) {
                     return sprintf(
                         self::HAS_MANY_QUERY_TEMPLATE,
                         $field,
                         $this->getVersionedTableName($field),
-                        $field
+                        $field,
                     );
                 },
-                $fields
-            )
+                $fields,
+            ),
         );
     }
 
@@ -370,27 +399,27 @@ class UnusedFileReportBuildTask extends BuildTask
         return implode(
             "\nUNION\n",
             array_map(
-                function($k, $v) {
+                function ($k, $v) {
                     return implode(
                         "\nUNION\n",
                         array_map(
-                            function($joinTable, $field) use ($k) {
+                            function ($joinTable, $field) use ($k) {
                                 return sprintf(
                                     self::MANY_MANY_QUERY_TEMPLATE,
                                     $field,
                                     $k,
                                     $joinTable,
-                                    $field
+                                    $field,
                                 );
                             },
                             array_keys($v),
-                            $v
-                        )
+                            $v,
+                        ),
                     );
                 },
                 array_keys($manyManyClasses),
-                $manyManyClasses
-            )
+                $manyManyClasses,
+            ),
         );
     }
 
@@ -427,7 +456,7 @@ class UnusedFileReportBuildTask extends BuildTask
         foreach ($candidates as $className) {
             $contentClasses[$className] = array_intersect(
                 DataObject::getSchema()->databaseFields($className, false),
-                ['HTMLText']
+                ['HTMLText'],
             );
         }
 
@@ -445,11 +474,11 @@ class UnusedFileReportBuildTask extends BuildTask
     protected function getContentQuery($contentClasses)
     {
         $queries = array_map(
-            function($k, $v) {
+            function ($k, $v) {
                 return implode(
                     "\nUNION\n",
                     array_map(
-                        function($field) use ($k) {
+                        function ($field) use ($k) {
                             return sprintf(
                                 self::CONTENT_QUERY_TEMPLATE,
                                 $field,
@@ -457,15 +486,15 @@ class UnusedFileReportBuildTask extends BuildTask
                                 $field,
                                 $field,
                                 $field,
-                                $field
+                                $field,
                             );
                         },
-                        array_keys($v)
-                    )
+                        array_keys($v),
+                    ),
                 );
             },
             array_keys($contentClasses),
-            $contentClasses
+            $contentClasses,
         );
         return $queries;
     }
@@ -490,9 +519,9 @@ class UnusedFileReportBuildTask extends BuildTask
                     array_unique(
                         array_merge(
                             $this->extractImageReferences($rawContent),
-                            $this->extractFileReferences($rawContent)
-                        )
-                    )
+                            $this->extractFileReferences($rawContent),
+                        ),
+                    ),
                 );
                 $allIds = array_unique(array_merge($allIds, $ids));
                 $offset += $batchSize;
@@ -506,19 +535,20 @@ class UnusedFileReportBuildTask extends BuildTask
     * @param string $content
     * @return array
     */
-    protected function extractImageReferences($content)
+    protected function extractImageReferences($content): array
     {
-        $allImages = (object) array('images' => []);
+        $allImages = (object) ['images' => []];
+        $contents = (array) $content;
         array_walk(
-            $content,
-            function($value, $_, &$accumulator) {
+            $contents,
+            function ($value, $_, $accumulator) {
                 $images = [];
                 preg_match_all('/<img[^>]+src="([^">]+)"/', $value, $images);
                 if (!empty($images[1])) {
                     $accumulator->images = array_merge($accumulator->images, $images[1]);
                 }
             },
-            $allImages
+            $allImages,
         );
         $allImages = array_unique($allImages->images);
         return $this->findFiles($allImages);
@@ -529,19 +559,20 @@ class UnusedFileReportBuildTask extends BuildTask
     * @param string $content
     * @return array
     */
-    protected function extractFileReferences($content)
+    protected function extractFileReferences($content): array
     {
-        $allFiles = (object) array('files' => []);
+        $allFiles = (object) ['files' => []];
+        $contents = (array) $content;
         array_walk(
-            $content,
-            function($value, $_, &$accumulator) {
+            $contents,
+            function ($value, $_, $accumulator) {
                 $files = [];
                 preg_match_all('/\[file_link,id=([0-9]*)\]/', $value, $files);
                 if (!empty($files[1])) {
                     $accumulator->files = array_merge($accumulator->files, $files[1]);
                 }
             },
-            $allFiles
+            $allFiles,
         );
         $fileIds = array_unique($allFiles->files);
 
@@ -557,14 +588,14 @@ class UnusedFileReportBuildTask extends BuildTask
     {
         return array_filter(
             array_map(
-                function($fileName) {
+                function ($fileName) {
                     $file = File::find($fileName);
                     if ($file) {
                         return $file->ID;
                     }
                 },
-                $files
-            )
+                $files,
+            ),
         );
     }
 
@@ -632,21 +663,22 @@ class UnusedFileReportBuildTask extends BuildTask
         if (Director::is_cli()) {
             echo $message . PHP_EOL;
         } else {
-            echo sprintf('<p>%s</p>'. PHP_EOL, $message);
+            echo sprintf('<p>%s</p>' . PHP_EOL, $message);
         }
     }
 
     /**
      * @return string
      */
-    protected function getNiceSize($bytes) {
+    protected function getNiceSize($bytes)
+    {
         $unit = ['B','KiB','MiB','GiB','TiB','PiB'];
 
         if ($bytes == 0) {
             return '0 ' . $unit[0];
         }
 
-        return @round($bytes / pow(1024,($i=  floor(log($bytes,1024)))),2) .' '. (isset($unit[$i]) ? $unit[$i] : 'B');
+        return @round($bytes / pow(1024, ($i =  floor(log($bytes, 1024)))), 2) . ' ' . (isset($unit[$i]) ? $unit[$i] : 'B');
     }
 
 }

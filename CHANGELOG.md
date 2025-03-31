@@ -1,3 +1,6 @@
+## 0.3
+
+* Upgrade to SilverStripe 5 syntax.
 ## 0.2
 
 * Upgrade to SilverStripe 4 syntax.
