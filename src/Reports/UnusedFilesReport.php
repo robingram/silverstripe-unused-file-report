@@ -31,43 +31,44 @@ class UnusedFilesReport extends Report
 
     public function description()
     {
-        return DBField::create_field('HTMLText',
-            'This report contains <strong>potentially</strong> unused files. Please check with the owner before deleting any of these files.'
+        return DBField::create_field(
+            'HTMLText',
+            'This report contains <strong>potentially</strong> unused files. Please check with the owner before deleting any of these files.',
         );
     }
 
     public function columns()
     {
-        $fields = array(
+        $fields = [
             'ID' => 'File ID',
-            'Created' => array(
+            'Created' => [
                 'title' => 'Created',
-                'casting' => 'Date->Nice'
-            ),
-            'LastEdited' => array(
+                'casting' => 'Date->Nice',
+            ],
+            'LastEdited' => [
                 'title' => 'Last Edited',
-                'casting' => 'Date->Ago'
-            ),
-            'Name' => array(
+                'casting' => 'Date->Ago',
+            ],
+            'Name' => [
                 'title' => 'File',
                 'formatting' => function ($value, $item) {
                     return sprintf(
                         "<a href='%s'>%s</a>",
                         Controller::join_links(singleton(AssetAdmin::class)->Link('EditForm'), 'field/File/item', $item->ID, 'edit'),
-                        $value
+                        $value,
                     );
                 },
-            ),
-            'FileSize' => array(
+            ],
+            'FileSize' => [
                 'title' => 'File size',
                 'formatting' => function ($value, $item) {
-                    return $this->toHumanReadableFileSize($value);
-                }
-            ),
+                    return $item->getSize();
+                },
+            ],
             'FileName' => 'Location',
             'ClassName' => 'Type',
             'OwnerID' => 'OwnerID',
-            'OwnerID' => array(
+            'OwnerID' => [
                 'title' => 'OwnerID',
                 'formatting' => function ($value, $item) {
                     if ($item->OwnerID > 0) {
@@ -75,11 +76,10 @@ class UnusedFilesReport extends Report
                         return $owner = (isset($owner) ? $owner->getName() : 'Deleted');
                     }
                     return $value;
-                }
-            ),
-            'VersionNumber' => 'Version',
-            'CurrentVersionID' => 'CurrentVersionID',
-        );
+                },
+            ],
+            'Version' => 'Version',
+        ];
         return $fields;
     }
 
@@ -132,8 +132,8 @@ class UnusedFilesReport extends Report
             new DropdownField('FileType', 'File type', [
                 'All' => 'All',
                 'File' => 'Files Only',
-                'Image' => 'Images Only'
-            ])
+                'Image' => 'Images Only',
+            ]),
         );
     }
 
@@ -149,26 +149,4 @@ class UnusedFilesReport extends Report
         return $field;
     }
 
-    /**
-     * Display the value as a human friendly file size
-     * http://stackoverflow.com/questions/2510434/format-bytes-to-kilobytes-megabytes-gigabytes
-     *
-     * @param  int $value
-     * @return string        Human friendly version of $value as file size
-     */
-    protected function toHumanReadableFileSize($value, $precision = 1)
-    {
-        if (!empty($value)) {
-            $units = array('B', 'KB', 'MB', 'GB', 'TB');
-
-            $bytes = max($value, 0);
-            $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-            $pow = min($pow, count($units) - 1);
-            $bytes /= pow(1024, $pow);
-
-            return round($bytes, $precision) . ' ' . $units[$pow];
-        } else {
-            return 0;
-        }
-    }
 }
