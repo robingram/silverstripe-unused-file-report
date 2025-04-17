@@ -2,9 +2,9 @@
 
 namespace RobIngram\SilverStripe\UnusedFileReport\Jobs;
 
+use RobIngram\SilverStripe\UnusedFileReport\Tasks\UnusedFileReportBuildTask;
 use Symbiote\QueuedJobs\Services\AbstractQueuedJob;
 use Symbiote\QueuedJobs\Services\QueuedJob;
-use RobIngram\SilverStripe\UnusedFileReport\UnusedFileReportBuildTask;
 use SilverStripe\Control\HTTPRequest;
 
 /**
