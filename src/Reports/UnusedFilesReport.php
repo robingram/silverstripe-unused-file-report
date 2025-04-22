@@ -53,7 +53,7 @@ class UnusedFilesReport extends Report
                 'title' => 'File',
                 'formatting' => function ($value, $item) {
                     return sprintf(
-                        "<a href='%s'>%s</a>",
+                        "<a href='%s' target=\"_blank\">%s</a>",
                         Controller::join_links(singleton(AssetAdmin::class)->Link('EditForm'), 'field/File/item', $item->ID, 'edit'),
                         $value,
                     );
@@ -148,5 +148,4 @@ class UnusedFilesReport extends Report
 
         return $field;
     }
-
 }

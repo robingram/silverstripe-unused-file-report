@@ -1,9 +1,18 @@
-## 0.3
+## 3.0.1
+
+* Fix path to `UnusedFileReportBuildTask`
+
+## 3.0.0
 
 * Upgrade to SilverStripe 5 syntax.
-## 0.2
+
+## 2.0.0
 
 * Upgrade to SilverStripe 4 syntax.
+
+## 1.0.0
+
+* First full release, SilverStripe 3 syntax
 
 ## 0.1.1
 
