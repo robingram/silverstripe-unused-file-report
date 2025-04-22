@@ -44,6 +44,10 @@ class DeleteAllUnusedFiles extends BuildTask
      */
     protected $description = 'All the files that currently listed in the unused file report will be deleted.';
 
+    private static $skip_deleting_folders = true;
+
+    protected $skipDeletingFolders = true;
+
 
     /**
      * {@inheritDoc}
@@ -61,6 +65,7 @@ class DeleteAllUnusedFiles extends BuildTask
             echo 'ERROR: This task can only be run from the command line.' . PHP_EOL;
             return;
         }
+        $this->skipDeletingFolders = Config::inst()->get(self::class, 'skip_deleting_folders');
         $list = UnusedFileReportDB::get()->columnUnique('FileID');
         if ($list) {
             foreach ($list as $id) {
@@ -78,10 +83,17 @@ class DeleteAllUnusedFiles extends BuildTask
     protected function deleteFile(int $id): bool
     {
         $file = File::get()->byID($id);
+
         if ($file) {
+            if ($this->skipDeletingFolders) {
+                if ($file->isFolder()) {
+                    echo 'Skipping folder: ' . $file->getFilename() . PHP_EOL;
+                    return true;
+                }
+            }
             echo 'Deleting file: ' . $file->getFilename() . PHP_EOL;
             $fileName = $file->getFilename();
-
+            $path = Controller::join_links(ASSETS_PATH, $fileName);
             try {
                 //$file->deleteFile();
             } catch (Exception $exception) {
@@ -91,7 +103,6 @@ class DeleteAllUnusedFiles extends BuildTask
             $file->deleteFromStage(Versioned::LIVE);
             DB::query('DELETE FROM "File" WHERE "ID" = ' . $id . ' LIMIT 1');
             DB::query('DELETE FROM "File_Live" WHERE "ID" = ' . $id . ' LIMIT 1');
-            $path = Controller::join_links(ASSETS_PATH, $fileName);
             if (file_exists($path)) {
                 echo 'ERROR: Also having to delete physical file: ' . $path . PHP_EOL;
                 if (! $this->deleteDirectoryOrFile($path)) {
