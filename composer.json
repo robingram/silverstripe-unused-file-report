@@ -1,5 +1,5 @@
 {
-    "name": "robingram/silverstripe-unused-file-report",
+    "name": "sunnysideup/silverstripe-unused-file-report",
     "description": "Generates a report on potentially unused files for CMS users",
     "keywords": [
         "silverstripe",
