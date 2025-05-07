@@ -197,8 +197,6 @@ class UnusedFileReportBuildTask extends BuildTask
 
     /**
      * Get the IDs of all files that are in use on the site.
-     *
-     * @return array
      */
     protected function getUsedFiles(): array
     {
@@ -231,8 +229,6 @@ class UnusedFileReportBuildTask extends BuildTask
 
     /**
      * Get all the candidate classes to check for File or Image references.
-     *
-     * @return array
      */
     protected function getClassesToCheck(): array
     {
@@ -253,12 +249,8 @@ class UnusedFileReportBuildTask extends BuildTask
 
     /**
      * Get all the classes that have references to images or files
-     *
-     * @param array $candidates Candidate class names
-     *
-     * @return array
      */
-    protected function getFileClasses($candidates): array
+    protected function getFileClasses(array $candidates): array
     {
         $hasOneRels   = [];
         $hasManyRels  = [];
@@ -368,10 +360,10 @@ class UnusedFileReportBuildTask extends BuildTask
     /**
      * Build a query to get file IDs for has_many relationships
      *
-     * @param array $hasOneClasses Classes and their relationships of type 'has_many'
+     * @param array $hasManyClasses Classes and their relationships of type 'has_many'
      * @return string
      */
-    protected function getHasManyQuery(array $hasManyClasses): sting
+    protected function getHasManyQuery(array $hasManyClasses): string
     {
         if (count($hasManyClasses) == 0) {
             return '';
@@ -397,7 +389,7 @@ class UnusedFileReportBuildTask extends BuildTask
     /**
      * Build a query to get file IDs for many_many relationships
      *
-     * @param array $hasOneClasses Classes and their relationships of type 'many_many'
+     * @param array $manyManyClasses Classes and their relationships of type 'many_many'
      * @return string
      */
     protected function getManyManyQuery(array $manyManyClasses): string
@@ -448,7 +440,7 @@ class UnusedFileReportBuildTask extends BuildTask
 
             $result = DB::query($query)->column();
             DB::query(self::ISOLATION_OFF);
-            if(! $result) {
+            if (! $result) {
                 $result = [];
             }
             return (array)  $result;
@@ -545,10 +537,8 @@ class UnusedFileReportBuildTask extends BuildTask
 
     /**
      * Extract the IDs of all files from image references in HTML content
-     * @param string $content
-     * @return array
      */
-    protected function extractImageReferences(string $content): array
+    protected function extractImageReferences(array $content): array
     {
         $allImages = (object) ['images' => []];
         $contents = (array) $content;
@@ -569,10 +559,8 @@ class UnusedFileReportBuildTask extends BuildTask
 
     /**
      * Extract the IDs of all files from file references in HTML content
-     * @param string $content
-     * @return array
      */
-    protected function extractFileReferences(string $content): array
+    protected function extractFileReferences(array $content): array
     {
         $allFiles = (object) ['files' => []];
         $contents = (array) $content;
@@ -594,8 +582,6 @@ class UnusedFileReportBuildTask extends BuildTask
 
     /**
      * Get the IDs of files given a list of paths
-     * @param array $files
-     * @return array
      */
     protected function findFiles(array $files): array
     {
@@ -624,10 +610,8 @@ class UnusedFileReportBuildTask extends BuildTask
         return $ids;
     }
 
-    /**
-     * @return ClassManifest
-     */
-    protected function getManifest()
+
+    protected function getManifest(): ClassManifest
     {
         if (is_null($this->manifest)) {
             $this->manifest = ClassLoader::inst()->getManifest();
@@ -638,7 +622,6 @@ class UnusedFileReportBuildTask extends BuildTask
 
     /**
      * Get classes that are descendents of SiteTree
-     * @return array
      */
     protected function getSiteTreeClasses(): array
     {
@@ -651,7 +634,6 @@ class UnusedFileReportBuildTask extends BuildTask
 
     /**
      * Get classes that are descendents of DataObject
-     * @return array
      */
     protected function getDataClasses(): array
     {
@@ -669,7 +651,7 @@ class UnusedFileReportBuildTask extends BuildTask
      *
      * @return string            Class name with versioned extension if applicable
      */
-    protected function getVersionedtableName(string $className) : string
+    protected function getVersionedtableName(string $className): string
     {
         $table = DataObject::getSchema()->tableName($className);
 
@@ -680,9 +662,6 @@ class UnusedFileReportBuildTask extends BuildTask
         }
     }
 
-    /**
-     *
-     */
     protected function outputMessage(?string $message)
     {
         if (Director::is_cli()) {
@@ -692,9 +671,6 @@ class UnusedFileReportBuildTask extends BuildTask
         }
     }
 
-    /**
-     * @return string
-     */
     protected function getNiceSize(int $bytes): string
     {
         $unit = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
