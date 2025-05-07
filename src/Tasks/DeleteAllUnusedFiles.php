@@ -46,9 +46,9 @@ class DeleteAllUnusedFiles extends BuildTask
      */
     protected $description = 'All the files that currently listed in the unused file report will be deleted.';
 
-    private static bool $skip_deleting_folders = false;
+    private static bool $skip_deleting_folders = true;
     private static bool $skip_deleting_images = false;
-    private static bool $skip_deleting_non_images = false;
+    private static bool $skip_deleting_non_images = true;
 
     private static bool $skip_deleting_folders_physical_only = false;
     private static bool $skip_deleting_images_physical_only = false;
@@ -127,7 +127,7 @@ class DeleteAllUnusedFiles extends BuildTask
                 }
             }
             if ($this->skipDeletingNonImages) {
-                if (!($file instanceof Image) && !($file instanceof Folder)) {
+                if (!($file instanceof Image)) {
                     echo '... Skipping non-image file: ' . $file->getFilename() . PHP_EOL;
                     return true;
                 }
