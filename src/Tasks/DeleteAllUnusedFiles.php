@@ -90,6 +90,8 @@ class DeleteAllUnusedFiles extends BuildTask
         $this->skipDeletingNonImagesPhysicalOnly = Config::inst()->get(self::class, 'skip_deleting_non_images_physical_only');
         $this->skipDeletingAllFilesPhysicalOnly = Config::inst()->get(self::class, 'skip_deleting_all_files_physical_only');
 
+        // important do first - just to be sure we have the latest data
+        (new UnusedFileReportBuildTask())->run($request);
 
         $list = UnusedFileReportDB::get()->columnUnique('FileID');
         $this->countOfFiles = count($list);
