@@ -2,18 +2,18 @@
 
 namespace RobIngram\SilverStripe\UnusedFileReport\Tasks;
 
-use SilverStripe\Dev\BuildTask;
-use SilverStripe\ORM\DB;
-use SilverStripe\ORM\Queries\SQLInsert;
-use SilverStripe\ORM\FieldType\DBDatetime;
-use SilverStripe\Core\Config\Config;
+use RobIngram\SilverStripe\UnusedFileReport\Model\UnusedFileReportDB;
 use SilverStripe\Assets\File;
 use SilverStripe\CMS\Model\SiteTree;
-use SilverStripe\ORM\DataObject;
+use SilverStripe\Control\Director;
+use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Environment;
 use SilverStripe\Core\Manifest\ClassLoader;
-use SilverStripe\Control\Director;
-use RobIngram\SilverStripe\UnusedFileReport\Model\UnusedFileReportDB;
+use SilverStripe\Dev\BuildTask;
+use SilverStripe\ORM\DataObject;
+use SilverStripe\ORM\DB;
+use SilverStripe\ORM\FieldType\DBDatetime;
+use SilverStripe\ORM\Queries\SQLInsert;
 
 /**
  * A task that collects data on unused files
@@ -21,70 +21,69 @@ use RobIngram\SilverStripe\UnusedFileReport\Model\UnusedFileReportDB;
 class UnusedFileReportBuildTask extends BuildTask
 {
     /**
-     * {@inheritDoc}
      * @var string
      */
     private static $segment = 'UnusedFileReportBuildTask';
 
     /**
-     * {@inheritDoc}
      * @var string
      */
     protected $title = 'Build table for Unused File Reports';
 
     /**
-     * {@inheritDoc}
      * @var string
      */
     protected $description = 'A task that collects data on unused files';
 
     /**
-     * {@inheritDoc}
-     * @var boolean
+     * @var bool
      */
     protected $enabled = true;
 
     /**
-    * Reference to the SS class manifest
-    * @var SS_ClassManifest
-    */
+     * Reference to the SS class manifest
+     *
+     * @var SS_ClassManifest
+     */
     protected $manifest;
 
     /**
-    * Classes that are descended from DataObject
-    * @var array
-    */
+     * Classes that are descended from DataObject
+     *
+     * @var array
+     */
     protected $dataClasses;
 
     /**
-    * Classes that are descended from SiteTree
-    * @var array
-    */
+     * Classes that are descended from SiteTree
+     *
+     * @var array
+     */
     protected $siteTreeClasses;
 
     // Isolation levels so that we can run large queries without locking the DB
-    public const ISOLATION_ON = 'SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;';
+    public const ISOLATION_ON  = 'SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;';
     public const ISOLATION_OFF = 'SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;';
 
-    public const HAS_ONE_QUERY_TEMPLATE = 'SELECT %sID AS file_id FROM %s WHERE %sID > 0';
-    public const HAS_MANY_QUERY_TEMPLATE = 'SELECT %sID AS file_id FROM %s WHERE %sID > 0';
+    public const HAS_ONE_QUERY_TEMPLATE   = 'SELECT %sID AS file_id FROM %s WHERE %sID > 0';
+    public const HAS_MANY_QUERY_TEMPLATE  = 'SELECT %sID AS file_id FROM %s WHERE %sID > 0';
     public const MANY_MANY_QUERY_TEMPLATE = 'SELECT %sID AS file_id FROM %s_%s WHERE %sID > 0';
-    public const CONTENT_QUERY_TEMPLATE = "SELECT %s AS content FROM %s WHERE %s IS NOT NULL AND %s != '' AND (%s LIKE '%%img%%' OR %s LIKE '%%file_link%%')";
+    public const CONTENT_QUERY_TEMPLATE   = "SELECT %s AS content FROM %s WHERE %s IS NOT NULL AND %s != '' AND (%s LIKE '%%img%%' OR %s LIKE '%%file_link%%')";
 
     public const LARGE_QUERY_BATCH_SIZE = 500;
 
     /**
-    * Classes that we should NOT be checking for unused file references
-    * @var array
-    */
+     * Classes that we should NOT be checking for unused file references
+     *
+     * @var array
+     */
     protected $excludeClasses = [
         'File',
         'FileVersion',
     ];
 
     /**
-     * {@inheritDoc}
-     * @param  SS_HTTPRequest $request [description]
+     * @param SS_HTTPRequest $request [description]
      */
     public function run($request)
     {
@@ -111,22 +110,21 @@ class UnusedFileReportBuildTask extends BuildTask
     /**
      * Get the IDs of all files that are in use and populate the table with
      * files that aren't used from the File and File_Live tables.
-     *
      */
     public function buildReportTable()
     {
-        $used = $this->getUsedFiles();
+        $used             = $this->getUsedFiles();
         $unusedPreviously = UnusedFileReportDB::get()->count();
 
         if ($used) {
-            $query =  sprintf(
+            $query = sprintf(
                 "SELECT ID FROM File WHERE ID NOT IN (%s) AND ClassName != 'SilverStripe\\Assets\\Folder'",
                 implode(',', $used),
             );
 
             $files = DB::query($query)->column();
             $count = 0;
-            $done = [];
+            $done  = [];
 
             $now = DBDatetime::now()->Rfc2822();
 
@@ -137,13 +135,13 @@ class UnusedFileReportBuildTask extends BuildTask
 
                 foreach ($files as $file) {
                     $insert->addRow([
-                        'FileID' => $file,
+                        'FileID'     => $file,
                         'LastEdited' => $now,
-                        'Created' => $now,
+                        'Created'    => $now,
                     ]);
 
                     $done[$file] = true;
-                    $count++;
+                    ++$count;
                 }
 
                 if (!$insert->isEmpty()) {
@@ -152,7 +150,7 @@ class UnusedFileReportBuildTask extends BuildTask
             }
 
             // remove any which aren't used in live.
-            $query =  sprintf(
+            $query = sprintf(
                 "SELECT ID FROM File_Live WHERE ID NOT IN (%s) AND ClassName != 'SilverStripe\\Assets\\Folder'",
                 implode(',', $used),
             );
@@ -168,24 +166,33 @@ class UnusedFileReportBuildTask extends BuildTask
                     }
 
                     $insert->addRow([
-                        'FileID' => $file,
+                        'FileID'     => $file,
                         'LastEdited' => $now,
-                        'Created' => $now,
+                        'Created'    => $now,
                     ]);
 
-                    $count++;
+                    ++$count;
                 }
 
                 if (!$insert->isEmpty()) {
                     $insert->execute();
                 }
+                // Calculate total disk space used by unused files
+                $totalSize = 0;
+                foreach ($files as $file) {
+                    $fileObj = File::get()->byID($file);
+                    if ($fileObj) {
+                        $totalSize += $fileObj->getAbsoluteSize();
+                    }
+                }
             }
 
             $this->outputMessage(sprintf(
-                "%sReport table generation completed. %s %s files to Unused File DB.",
+                '%sReport table generation completed. %s %s files to Unused File DB. Total disk space used by unused files: %s',
                 PHP_EOL,
                 ($count > $unusedPreviously) ? 'Added' : 'Removed',
                 abs($count - $unusedPreviously),
+                $this->getNiceSize($totalSize)
             ));
         }
     }
@@ -199,7 +206,7 @@ class UnusedFileReportBuildTask extends BuildTask
     {
         $classesToCheck = $this->getClassesToCheck();
 
-        $classesWithFiles = $this->getFileClasses($classesToCheck);
+        $classesWithFiles  = $this->getFileClasses($classesToCheck);
         $relationshipQuery = $this->getRelationshipFileQuery($classesWithFiles);
         unset($classesWithFiles);
 
@@ -216,8 +223,7 @@ class UnusedFileReportBuildTask extends BuildTask
         unset($contentQuery);
 
         $usedIds = array_unique(array_merge($relatedIds, $contentIds));
-        unset($relatedIds);
-        unset($contentIds);
+        unset($relatedIds, $contentIds);
 
         return $usedIds;
     }
@@ -271,12 +277,13 @@ class UnusedFileReportBuildTask extends BuildTask
     }
 
     /**
-    * Get all the File or Image relationships on a class for the given type of relationship
-    *
-    * @param string $class        Name of class
-    * @param string $relationship Type of relationship (e.g. 'has_one')
-    * @return array               Array of relationships to files or images
-    */
+     * Get all the File or Image relationships on a class for the given type of relationship
+     *
+     * @param string $class        Name of class
+     * @param string $relationship Type of relationship (e.g. 'has_one')
+     *
+     * @return array Array of relationships to files or images
+     */
     protected function getRelationshipFields($class, $relationship)
     {
         $relationships = @(array) Config::inst()->get($class, $relationship, Config::UNINHERITED);
@@ -312,26 +319,28 @@ class UnusedFileReportBuildTask extends BuildTask
     }
 
     /**
-    * Build a query string to get the file IDs for all relationship types
-    *
-    * @param array $relationships All relationships of type 'has_one', 'has_many' and 'many_many'
-    * @return string
-    */
+     * Build a query string to get the file IDs for all relationship types
+     *
+     * @param array $relationships All relationships of type 'has_one', 'has_many' and 'many_many'
+     *
+     * @return string
+     */
     protected function getRelationshipFileQuery($relationships)
     {
-        $hasOneSql = $this->getHasOneQuery($relationships['has_one']);
-        $hasManySql = $this->getHasManyQuery($relationships['has_many']);
+        $hasOneSql   = $this->getHasOneQuery($relationships['has_one']);
+        $hasManySql  = $this->getHasManyQuery($relationships['has_many']);
         $manyManySql = $this->getManyManyQuery($relationships['many_many']);
 
         return implode("\nUNION\n", array_filter([$hasOneSql, $hasManySql, $manyManySql]));
     }
 
     /**
-    * Build a query to get file IDs for has_one relationships
-    *
-    * @param array $hasOneClasses Classes and their relationships of type 'has_one'
-    * @return string
-    */
+     * Build a query to get file IDs for has_one relationships
+     *
+     * @param array $hasOneClasses Classes and their relationships of type 'has_one'
+     *
+     * @return string
+     */
     protected function getHasOneQuery($hasOneClasses)
     {
         return implode(
@@ -360,11 +369,12 @@ class UnusedFileReportBuildTask extends BuildTask
     }
 
     /**
-    * Build a query to get file IDs for has_many relationships
-    *
-    * @param array $hasOneClasses Classes and their relationships of type 'has_many'
-    * @return string
-    */
+     * Build a query to get file IDs for has_many relationships
+     *
+     * @param mixed $hasManyClasses
+     *
+     * @return string
+     */
     protected function getHasManyQuery($hasManyClasses)
     {
         if (count($hasManyClasses) == 0) {
@@ -372,6 +382,7 @@ class UnusedFileReportBuildTask extends BuildTask
         }
 
         $fields = call_user_func_array('array_merge', $hasManyClasses);
+
         return implode(
             "\nUNION\n",
             array_map(
@@ -389,11 +400,12 @@ class UnusedFileReportBuildTask extends BuildTask
     }
 
     /**
-    * Build a query to get file IDs for many_many relationships
-    *
-    * @param array $hasOneClasses Classes and their relationships of type 'many_many'
-    * @return string
-    */
+     * Build a query to get file IDs for many_many relationships
+     *
+     * @param mixed $manyManyClasses
+     *
+     * @return string
+     */
     protected function getManyManyQuery($manyManyClasses)
     {
         return implode(
@@ -404,12 +416,14 @@ class UnusedFileReportBuildTask extends BuildTask
                         "\nUNION\n",
                         array_map(
                             function ($joinTable, $field) use ($k) {
+                                $shortField = class_exists($field) ? (new \ReflectionClass($field))->getShortName() : $field;
+
                                 return sprintf(
                                     self::MANY_MANY_QUERY_TEMPLATE,
-                                    $field,
+                                    $shortField,
                                     $k,
                                     $joinTable,
-                                    $field,
+                                    $shortField,
                                 );
                             },
                             array_keys($v),
@@ -424,11 +438,12 @@ class UnusedFileReportBuildTask extends BuildTask
     }
 
     /**
-    * Run the query to get the file IDs referenced by all relationships
-    *
-    * @param string $query SQL query to run
-    * @return array
-    */
+     * Run the query to get the file IDs referenced by all relationships
+     *
+     * @param string $query SQL query to run
+     *
+     * @return array
+     */
     protected function getRelatedFileIDs($query)
     {
         if ($query) {
@@ -438,17 +453,18 @@ class UnusedFileReportBuildTask extends BuildTask
             DB::query(self::ISOLATION_OFF);
 
             return $result;
-        } else {
-            return [];
         }
+
+        return [];
     }
 
     /**
-    * Get all the classes that have references to HTMLText content
-    *
-    * @param array $candidates Candidate class names
-    * @return array
-    */
+     * Get all the classes that have references to HTMLText content
+     *
+     * @param array $candidates Candidate class names
+     *
+     * @return array
+     */
     protected function getContentClasses($candidates)
     {
         $contentClasses = [];
@@ -460,20 +476,19 @@ class UnusedFileReportBuildTask extends BuildTask
             );
         }
 
-        $contentClasses = array_filter($contentClasses);
-
-        return $contentClasses;
+        return array_filter($contentClasses);
     }
 
     /**
-    * Build a set of queries to get content of all HTMLText fields
-    *
-    * @param array $contentClasses Classes and their HTMLText fields
-    * @return string
-    */
+     * Build a set of queries to get content of all HTMLText fields
+     *
+     * @param array $contentClasses Classes and their HTMLText fields
+     *
+     * @return string
+     */
     protected function getContentQuery($contentClasses)
     {
-        $queries = array_map(
+        return array_map(
             function ($k, $v) {
                 return implode(
                     "\nUNION\n",
@@ -496,17 +511,18 @@ class UnusedFileReportBuildTask extends BuildTask
             array_keys($contentClasses),
             $contentClasses,
         );
-        return $queries;
     }
 
     /**
-    * Get the IDs of all image and file references in HTML content
-    * @param array $queries Array of SQL queries to get the content fields
-    * @return array
-    */
+     * Get the IDs of all image and file references in HTML content
+     *
+     * @param array $queries Array of SQL queries to get the content fields
+     *
+     * @return array
+     */
     protected function getContentIds($queries)
     {
-        $allIds = [];
+        $allIds    = [];
         $batchSize = self::LARGE_QUERY_BATCH_SIZE;
         foreach ($queries as $query) {
             $offset = 0;
@@ -527,18 +543,19 @@ class UnusedFileReportBuildTask extends BuildTask
                 $offset += $batchSize;
             } while (count($rawContent) > 0 && count($rawContent) == $batchSize);
         }
+
         return $allIds;
     }
 
     /**
-    * Extract the IDs of all files from image references in HTML content
-    * @param string $content
-    * @return array
-    */
+     * Extract the IDs of all files from image references in HTML content
+     *
+     * @param string $content
+     */
     protected function extractImageReferences($content): array
     {
         $allImages = (object) ['images' => []];
-        $contents = (array) $content;
+        $contents  = (array) $content;
         array_walk(
             $contents,
             function ($value, $_, $accumulator) {
@@ -551,14 +568,15 @@ class UnusedFileReportBuildTask extends BuildTask
             $allImages,
         );
         $allImages = array_unique($allImages->images);
+
         return $this->findFiles($allImages);
     }
 
     /**
-    * Extract the IDs of all files from file references in HTML content
-    * @param string $content
-    * @return array
-    */
+     * Extract the IDs of all files from file references in HTML content
+     *
+     * @param string $content
+     */
     protected function extractFileReferences($content): array
     {
         $allFiles = (object) ['files' => []];
@@ -574,16 +592,17 @@ class UnusedFileReportBuildTask extends BuildTask
             },
             $allFiles,
         );
-        $fileIds = array_unique($allFiles->files);
 
-        return $fileIds;
+        return array_unique($allFiles->files);
     }
 
     /**
-    * Get the IDs of files given a list of paths
-    * @param array $files
-    * @return array
-    */
+     * Get the IDs of files given a list of paths
+     *
+     * @param array $files
+     *
+     * @return array
+     */
     protected function findFiles($files)
     {
         return array_filter(
@@ -612,9 +631,10 @@ class UnusedFileReportBuildTask extends BuildTask
     }
 
     /**
-    * Get classes that are descendents of SiteTree
-    * @return array
-    */
+     * Get classes that are descendents of SiteTree
+     *
+     * @return array
+     */
     protected function getSiteTreeClasses()
     {
         if (is_null($this->siteTreeClasses)) {
@@ -625,9 +645,10 @@ class UnusedFileReportBuildTask extends BuildTask
     }
 
     /**
-    * Get classes that are descendents of DataObject
-    * @return array
-    */
+     * Get classes that are descendents of DataObject
+     *
+     * @return array
+     */
     protected function getDataClasses()
     {
         if (is_null($this->dataClasses)) {
@@ -640,9 +661,9 @@ class UnusedFileReportBuildTask extends BuildTask
     /**
      * Transform a table name to it's versioned equivalent if necessary.
      *
-     * @param  string $className Name of class (corresponds to table name)
+     * @param string $className Name of class (corresponds to table name)
      *
-     * @return string            Class name with versioned extension if applicable
+     * @return string Class name with versioned extension if applicable
      */
     protected function getVersionedtableName($className)
     {
@@ -650,13 +671,13 @@ class UnusedFileReportBuildTask extends BuildTask
 
         if ($className::has_extension('Versioned')) {
             return "{$table}_Versions";
-        } else {
-            return $table;
         }
+
+        return $table;
     }
 
     /**
-     *
+     * @param mixed $message
      */
     protected function outputMessage($message)
     {
@@ -668,17 +689,18 @@ class UnusedFileReportBuildTask extends BuildTask
     }
 
     /**
+     * @param mixed $bytes
+     *
      * @return string
      */
     protected function getNiceSize($bytes)
     {
-        $unit = ['B','KiB','MiB','GiB','TiB','PiB'];
+        $unit = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
 
         if ($bytes == 0) {
             return '0 ' . $unit[0];
         }
 
-        return @round($bytes / pow(1024, ($i =  floor(log($bytes, 1024)))), 2) . ' ' . (isset($unit[$i]) ? $unit[$i] : 'B');
+        return @round($bytes / pow(1024, $i = floor(log($bytes, 1024))), 2) . ' ' . (isset($unit[$i]) ? $unit[$i] : 'B');
     }
-
 }
