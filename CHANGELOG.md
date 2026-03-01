@@ -1,3 +1,7 @@
+## 3.0.2
+
+* Fix invalid SQL in getManyManyQuery (@Sitetools)
+
 ## 3.0.1
 
 * Fix path to `UnusedFileReportBuildTask`
